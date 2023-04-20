@@ -1,0 +1,114 @@
+﻿<#
+    ###########################################################################
+    # Script Name: HBP_TechFix_Healthcheck.ps1
+    # Author: Callum Stones
+    # Company: HBP Systems
+    # Date Created: 20/04/2023 (Update this with the creation date)
+    #
+    # Copyright (c) Callum Stones, HBP Systems. All rights reserved.
+    # This script is provided "AS IS" without any warranties and is intended
+    # for use solely by the author and HBP Systems. Unauthorized copying,
+    # reproduction, modification, or distribution is strictly prohibited
+    # without the express written consent of Callum Stones and HBP Systems.
+    ###########################################################################
+#>
+
+if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    Write-Warning "You must run this script as an Administrator."
+ 
+    $NewProcessInfo = New-Object System.Diagnostics.ProcessStartInfo "PowerShell"
+    $NewProcessInfo.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$($MyInvocation.MyCommand.Path)`""
+    $NewProcessInfo.Verb = "runas"
+    try {
+        [System.Diagnostics.Process]::Start($NewProcessInfo)
+    } catch {
+        Write-Error "Failed to run script as Administrator."
+    }
+    exit
+}
+function Show-MainMenu {
+    while ($true) {
+        Clear-Host
+        Write-Host "-----------------------------------------------"
+        Write-Host "       Main Menu - HBP TechFix Healthcheck     "
+        Write-Host "-----------------------------------------------"
+        Write-Host "1. SFC Scan"
+        Write-Host "2. DISM Repair"
+        Write-Host "3. CHKDSK Boot Drive"
+        Write-Host "4. Defragment Boot Drive "
+        Write-Host "5. Autorun (Unattended)"
+        Write-Host "6. Exit"
+        Write-Host "-----------------------------------------------"
+        [int]$UserChoice = Read-Host "Please enter your choice (1-6)"
+
+        switch ($UserChoice) {
+            1 {
+                $SfcResult = Invoke-SfcScan
+            }
+            2 {
+                $DismResult = Run-DISMRepair
+            }
+            3 {
+                $ChkdskResult = Run-Chkdsk-CDrive
+            }
+            4 {
+                $DefragResult = Defragment-CDrive
+            }
+            5 {
+                $AutoRunResult = AllFunctionsRun
+            }
+            6 {
+                Write-Host "Exiting the script. Have a nice day!"
+                break
+            }
+            default {
+                Write-Warning "Invalid choice. Please try again."
+                Start-Sleep -Seconds 2
+            }
+        }
+    }
+}
+function Invoke-SfcScan {
+    $SfcCheckOutput = &{ sfc /scannow }
+
+    return $SfcCheckOutput
+}
+function Run-DISMRepair {
+    Write-Host "Starting DISM repair..." -ForegroundColor Yellow
+    $dismCommand = "DISM.exe /Online /Cleanup-image /Restorehealth"
+    Invoke-Expression -Command $dismCommand
+
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "DISM repair completed successfully." -ForegroundColor Green
+    } else {
+        Write-Host "DISM repair failed with exit code: $LASTEXITCODE" -ForegroundColor Red
+    }
+}
+function Run-Chkdsk-CDrive {
+    Write-Host "Running CHKDSK on C: drive..." -ForegroundColor Yellow
+    $chkdskCommand = "chkdsk C: /f"
+    
+    try {
+        $chkdskOutput = Invoke-Expression -Command $chkdskCommand -ErrorAction Stop
+        Write-Host "CHKDSK completed. Output:" -ForegroundColor Green
+        Write-Output $chkdskOutput
+    } catch {
+        Write-Host "CHKDSK failed with error:" -ForegroundColor Red
+        Write-Output $_.Exception.Message
+    }
+}
+function Defragment-CDrive {
+    Optimize-Volume -DriveLetter C -Defrag -Verbose
+}
+
+function AllFunctionsRun {
+    Invoke-SfcScan
+    Run-DISMRepair
+    Run-Chkdsk-CDrive
+    Defragment-CDrive
+    Shutdown /R /F /T 0
+}
+
+Show-MainMenu
+
+
