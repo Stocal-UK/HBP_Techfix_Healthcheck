@@ -33,33 +33,18 @@ Clear-Host
 
 Set-ExecutionPolicy -ExecutionPolicy Bypass -Force
 
-$logpath = "C:\HBP\Logs"
+$logpath = "C:\HBP\Logs" | Out-Null
 
 if (!(Test-Path $logPath)) {
-    New-Item -ItemType Directory -Path $logPath
+    New-Item -ItemType Directory -Path $logPath | Out-Null
 }
+
+Clear-Host
 
 Start-Transcript -Path "$logpath\Healthcheck_Result.log" | Out-Null
 
 Write-Host "Logging Started." -ForegroundColor Green
 Write-Host "Execution Policy set to Bypass." -ForegroundColor Green
-
-$bootDriveLetter = (Get-WmiObject -Class Win32_OperatingSystem).SystemDrive
-$bootDisk = Get-Partition -DriveLetter $bootDriveLetter.TrimEnd(":\") | Get-Disk
-$mediaType = $bootDisk.MediaType
-
-if ($mediaType -eq "SSD") {
-    $SSD = 'Y'
-    Write-Host "Boot Drive: SSD" -ForegroundColor Green
-}
-elseif ($mediaType -eq "HDD") {
-    $SSD = 'N'
-    Write-Host "Boot Drive: HDD" -ForegroundColor Green
-}
-else {
-    $SSD = 'N'
-    Write-Host "Boot Drive: Unknown MediaType" -ForegroundColor Green
-}
 
 Start-Sleep -Seconds 2
 
@@ -69,6 +54,10 @@ Write-Host "HBP TechFix Healthcheck Version 1.0" -ForegroundColor Green
 Write-Host "Written by Callum Stones" -ForegroundColor Green
 Write-Host "Initalizing..." -ForegroundColor Green
 Start-Sleep -Seconds 1
+
+do {
+    $SSD = Read-Host "Does this machine have an SSD? (Y/N)"
+} while ($SSD -ne 'Y' -and $SSD -ne 'N')
 
 function Invoke-WindowsUpdates {
     Write-Host "Starting Windows Update Retrieval..." -ForegroundColor Yellow
