@@ -3,7 +3,7 @@
     # Script Name: HBP_TechFix_Healthcheck.ps1
     # Author: Callum Stones
     # Company: HBP Systems
-    # Date Created: 20/04/2023 (Update this with the creation date)
+    # Date Created: 20/04/2023 
     #
     # Copyright (c) Callum Stones, HBP Systems. All rights reserved.
     # This script is provided "AS IS" without any warranties and is intended
@@ -12,6 +12,8 @@
     # without the express written consent of Callum Stones and HBP Systems.
     ###########################################################################
 #>
+
+Clear-Host
 
 if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     Write-Warning "You must run this script as an Administrator."
@@ -26,89 +28,164 @@ if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
     }
     exit
 }
-function Show-MainMenu {
-    while ($true) {
-        Clear-Host
-        Write-Host "-----------------------------------------------"
-        Write-Host "       Main Menu - HBP TechFix Healthcheck     "
-        Write-Host "-----------------------------------------------"
-        Write-Host "1. SFC Scan"
-        Write-Host "2. DISM Repair"
-        Write-Host "3. CHKDSK Boot Drive"
-        Write-Host "4. Defragment Boot Drive "
-        Write-Host "5. Autorun (Unattended)"
-        Write-Host "6. Exit"
-        Write-Host "-----------------------------------------------"
-        [int]$UserChoice = Read-Host "Please enter your choice (1-6)"
 
-        switch ($UserChoice) {
-            1 {
-                $SfcResult = Invoke-SfcScan
-            }
-            2 {
-                $DismResult = Run-DISMRepair
-            }
-            3 {
-                $ChkdskResult = Run-Chkdsk-CDrive
-            }
-            4 {
-                $DefragResult = Defragment-CDrive
-            }
-            5 {
-                $AutoRunResult = AllFunctionsRun
-            }
-            6 {
-                Write-Host "Exiting the script. Have a nice day!"
-                break
-            }
-            default {
-                Write-Warning "Invalid choice. Please try again."
-                Start-Sleep -Seconds 2
-            }
-        }
-    }
+Clear-Host
+
+Set-ExecutionPolicy -ExecutionPolicy Bypass -Force
+
+$logpath = "C:\HBP\Logs"
+
+if (!(Test-Path $logPath)) {
+    New-Item -ItemType Directory -Path $logPath
 }
+
+Start-Transcript -Path "$logpath\Healthcheck_Result.log" | Out-Null
+
+Write-Host "Logging Started." -ForegroundColor Green
+Write-Host "Execution Policy set to Bypass." -ForegroundColor Green
+
+$bootDriveLetter = (Get-WmiObject -Class Win32_OperatingSystem).SystemDrive
+$bootDisk = Get-Partition -DriveLetter $bootDriveLetter.TrimEnd(":\") | Get-Disk
+$mediaType = $bootDisk.MediaType
+
+if ($mediaType -eq "SSD") {
+    $SSD = 'Y'
+    Write-Host "Boot Drive: SSD" -ForegroundColor Green
+}
+elseif ($mediaType -eq "HDD") {
+    $SSD = 'N'
+    Write-Host "Boot Drive: HDD" -ForegroundColor Green
+}
+else {
+    $SSD = 'N'
+    Write-Host "Boot Drive: Unknown MediaType" -ForegroundColor Green
+}
+
+Start-Sleep -Seconds 2
+
+Write-Host""
+Write-Host""
+Write-Host "HBP TechFix Healthcheck Version 1.0" -ForegroundColor Green
+Write-Host "Written by Callum Stones" -ForegroundColor Green
+Write-Host "Initalizing..." -ForegroundColor Green
+Start-Sleep -Seconds 1
+
+function Invoke-WindowsUpdates {
+    Write-Host "Starting Windows Update Retrieval..." -ForegroundColor Yellow
+    Start-Sleep -Seconds 2
+    Write-Host "Running Windows Update Retrieval..." -ForegroundColor Yellow
+
+try {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+    Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force | Out-Null
+
+    Install-Module -Name PSWindowsUpdate -Scope CurrentUser -Force  | Out-Null
+
+    Import-Module PSWindowsUpdate -Force  | Out-Null
+
+    Get-WindowsUpdate -Install -AcceptAll -IgnoreReboot | Out-Null
+
+    Write-Host "Windows Updates Forced!" -ForegroundColor Green
+}
+catch {
+    Write-Host "Updates Failed." -ForegroundColor Red
+}
+
+}
+
 function Invoke-SfcScan {
-    $SfcCheckOutput = &{ sfc /scannow }
-
-    return $SfcCheckOutput
-}
-function Run-DISMRepair {
-    Write-Host "Starting DISM repair..." -ForegroundColor Yellow
-    $dismCommand = "DISM.exe /Online /Cleanup-image /Restorehealth"
-    Invoke-Expression -Command $dismCommand
-
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "DISM repair completed successfully." -ForegroundColor Green
-    } else {
-        Write-Host "DISM repair failed with exit code: $LASTEXITCODE" -ForegroundColor Red
-    }
-}
-function Run-Chkdsk-CDrive {
-    Write-Host "Running CHKDSK on C: drive..." -ForegroundColor Yellow
-    $chkdskCommand = "chkdsk C: /f"
+    Write-Host "Starting SFC Procedure..." -ForegroundColor Yellow
+    Start-Sleep -Seconds 2
+    Write-Host "Running SFC Procedure..." -ForegroundColor Yellow
     
+    sfc /scannow 
+
+    Write-Host "SFC Procedure Complete." -ForegroundColor Green
+}
+
+function Invoke-DISMRepair {
+    Write-Host "Starting DISM repair..." -ForegroundColor Yellow
+    Start-Sleep -Seconds 2
+    Write-Host "Running DISM repair..." -ForegroundColor Yellow
+    
+    $command = "DISM.exe /Online /Cleanup-image /Restorehealth"
+    Invoke-Expression $command
+   
+    Write-Host "DISM Repair Complete." -ForegroundColor Green
+}
+
+function Invoke-Chkdsk-CDrive {
+    Write-Host "Starting CHKDSK on C: drive..." -ForegroundColor Yellow
+    Start-Sleep -Seconds 2
+    Write-Host "Running CHKDSK on C: drive..." -ForegroundColor Yellow
+    
+    Write-Output Y | Chkdsk C: /F /R /X | Out-Null
+    
+    Write-Host "Reboot to complete CHKDSK on C: drive..." -ForegroundColor Yellow
+}
+
+function Invoke-Defragment-CDrive {
+    Write-Host "Starting Defrag on C: drive..." -ForegroundColor Yellow
+    Start-Sleep -Seconds 2
+    Write-Host "Running Defrag on C: drive..." -ForegroundColor Yellow
+
+    $DefragOutput = Optimize-Volume -DriveLetter C -Defrag -Verbose
+
+    Write-Host "Finished Defrag on C: drive." -ForegroundColor Green
+
+    Return $DefragOutput
+}
+
+function Disable-FastBoot {
+    Write-Host "Disabling Fastboot..." -ForegroundColor Yellow
+    Start-Sleep -Seconds 2
     try {
-        $chkdskOutput = Invoke-Expression -Command $chkdskCommand -ErrorAction Stop
-        Write-Host "CHKDSK completed. Output:" -ForegroundColor Green
-        Write-Output $chkdskOutput
-    } catch {
-        Write-Host "CHKDSK failed with error:" -ForegroundColor Red
-        Write-Output $_.Exception.Message
+        Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power' -Name 'HiberbootEnabled' -Value 0 -Force
+        Write-Host "Fast Boot has been disabled successfully." -ForegroundColor Green
+    }
+    catch {
+        Write-Host "Error disabling Fast Boot!" -ForegroundColor Red
     }
 }
-function Defragment-CDrive {
-    Optimize-Volume -DriveLetter C -Defrag -Verbose
+
+function Enable-HighPerformance {
+    Write-Host "Enabling High Performance Mode..." -ForegroundColor Yellow
+    Start-Sleep -Seconds 2
+    try {
+        powercfg.exe /setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c
+
+        Write-Host "High-Performance power plan has been activated successfully." -ForegroundColor Green
+    }
+    catch {
+        Write-Host "Error activating High-Performance power plan!" -ForegroundColor Red
+    }
 }
 
-function AllFunctionsRun {
-    Invoke-SfcScan
-    Run-DISMRepair
-    Run-Chkdsk-CDrive
-    Defragment-CDrive
-    Shutdown /R /F /T 0
+Invoke-WindowsUpdates
+Invoke-SfcScan
+Invoke-DISMRepair
+Invoke-Chkdsk-CDrive
+if ($SSD -eq 'N') {
+    Invoke-Defragment-CDrive
 }
+Disable-FastBoot
+Enable-HighPerformance
 
-Show-MainMenu
+Write-Host "PC is ready to reboot..." -ForegroundColor Green
+Write-Host "Continuing will trigger a reboot!" -ForegroundColor Yellow
+
+Pause
+
+Write-Host "PC will reboot in 1 minute..." -ForegroundColor Red
+
+Start-Sleep -Seconds 4
+
+Stop-Transcript | Out-Null
+
+Shutdown /R /F /T 60 | Out-Null
+
+
+
 
 
