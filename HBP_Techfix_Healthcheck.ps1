@@ -151,7 +151,6 @@ function Enable-HighPerformance {
     }
 }
 
-Invoke-WindowsUpdates
 Invoke-SfcScan
 Invoke-DISMRepair
 Invoke-Chkdsk-CDrive
@@ -160,6 +159,7 @@ if ($SSD -eq 'N') {
 }
 Disable-FastBoot
 Enable-HighPerformance
+Invoke-WindowsUpdates
 
 Write-Host "PC is ready to reboot..." -ForegroundColor Green
 Write-Host "Continuing will trigger a reboot!" -ForegroundColor Yellow
