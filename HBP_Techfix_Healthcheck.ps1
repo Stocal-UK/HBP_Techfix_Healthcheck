@@ -158,7 +158,6 @@ if ($SSD -eq 'N') {
     Invoke-Defragment-CDrive
 }
 Disable-FastBoot
-Enable-HighPerformance
 Invoke-WindowsUpdates
 
 Write-Host "PC is ready to reboot..." -ForegroundColor Green
