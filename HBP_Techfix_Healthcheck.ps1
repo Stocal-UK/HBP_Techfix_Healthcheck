@@ -157,7 +157,6 @@ Invoke-Chkdsk-CDrive
 if ($SSD -eq 'N') {
     Invoke-Defragment-CDrive
 }
-Disable-FastBoot
 Invoke-WindowsUpdates
 
 Write-Host "PC is ready to reboot..." -ForegroundColor Green
